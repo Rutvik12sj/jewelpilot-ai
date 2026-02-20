@@ -2,18 +2,26 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
+import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
 
 dotenv.config({ override: true });
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, 'public')));
+const DATA_DIR = path.join(__dirname, 'data');
+const SUBSCRIPTIONS_FILE = path.join(DATA_DIR, 'subscriptions.json');
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const premiumEnforcement = String(process.env.PREMIUM_ENFORCEMENT || 'true').toLowerCase() === 'true';
+
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' }) : null;
 
 const apiKey = process.env.OPENAI_API_KEY;
 const modelByTier = {
@@ -22,6 +30,146 @@ const modelByTier = {
   quality: process.env.OPENAI_MODEL_QUALITY || process.env.OPENAI_MODEL || 'gpt-4o'
 };
 const client = apiKey ? new OpenAI({ apiKey }) : null;
+
+function normalizeEmail(email = '') {
+  return String(email || '').trim().toLowerCase();
+}
+
+async function ensureDataStore() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    await fs.access(SUBSCRIPTIONS_FILE);
+  } catch {
+    await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify({ users: {} }, null, 2), 'utf8');
+  }
+}
+
+async function readSubscriptions() {
+  await ensureDataStore();
+  const raw = await fs.readFile(SUBSCRIPTIONS_FILE, 'utf8');
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.users ? parsed : { users: {} };
+  } catch {
+    return { users: {} };
+  }
+}
+
+async function writeSubscriptions(store) {
+  await ensureDataStore();
+  await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+}
+
+async function updateUserSubscription({ email, status, customerId = null, subscriptionId = null, source = 'webhook' }) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return;
+
+  const store = await readSubscriptions();
+  const isActive = ['active', 'trialing'].includes(String(status || '').toLowerCase());
+
+  store.users[cleanEmail] = {
+    email: cleanEmail,
+    plan: isActive ? 'pro' : 'free',
+    subscriptionStatus: status || (isActive ? 'active' : 'inactive'),
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: subscriptionId,
+    source,
+    updatedAt: new Date().toISOString()
+  };
+
+  await writeSubscriptions(store);
+}
+
+async function getUserSubscription(email) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return null;
+
+  const store = await readSubscriptions();
+  return store.users[cleanEmail] || null;
+}
+
+async function emailFromCustomer(customerId) {
+  if (!stripe || !customerId) return null;
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer && !customer.deleted) {
+    return customer.email || null;
+  }
+  return null;
+}
+
+// Stripe webhook must receive raw body BEFORE express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe || !stripeWebhookSecret) {
+    return res.status(500).send('Stripe webhook not configured.');
+  }
+
+  const signature = req.headers['stripe-signature'];
+  if (!signature) return res.status(400).send('Missing Stripe signature.');
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, stripeWebhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err?.message || err);
+    return res.status(400).send(`Webhook Error: ${err?.message || 'Invalid signature'}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const email = session.customer_details?.email || session.customer_email || null;
+        const status = session.payment_status === 'paid' ? 'active' : 'incomplete';
+        await updateUserSubscription({
+          email,
+          status,
+          customerId: session.customer || null,
+          subscriptionId: session.subscription || null,
+          source: 'checkout.session.completed'
+        });
+        break;
+      }
+
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        const email = await emailFromCustomer(subscription.customer);
+        await updateUserSubscription({
+          email,
+          status: subscription.status,
+          customerId: subscription.customer || null,
+          subscriptionId: subscription.id || null,
+          source: event.type
+        });
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const email = await emailFromCustomer(invoice.customer);
+        await updateUserSubscription({
+          email,
+          status: 'past_due',
+          customerId: invoice.customer || null,
+          subscriptionId: invoice.subscription || null,
+          source: event.type
+        });
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook processing failed:', err?.message || err);
+    res.status(500).send('Webhook handler failed');
+  }
+});
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 function basePrompt(settings = {}) {
   const tone = settings?.tone || 'high-converting';
@@ -88,7 +236,52 @@ function formatShopifyStructured(s = {}) {
   ].join('\n');
 }
 
-app.post('/api/generate', async (req, res) => {
+async function requirePremium(req, res, next) {
+  if (!premiumEnforcement) return next();
+
+  const email = normalizeEmail(
+    req.headers['x-user-email'] || req.body?.userEmail || req.body?.email || req.query?.email
+  );
+
+  if (!email) {
+    return res.status(401).json({
+      error: 'Missing user email. Send x-user-email header so premium access can be checked.'
+    });
+  }
+
+  const subscription = await getUserSubscription(email);
+  const isActive = subscription?.plan === 'pro' && ['active', 'trialing'].includes(subscription?.subscriptionStatus);
+
+  if (!isActive) {
+    return res.status(402).json({
+      error: 'Premium subscription required.',
+      plan: subscription?.plan || 'free',
+      subscriptionStatus: subscription?.subscriptionStatus || 'inactive'
+    });
+  }
+
+  req.userEmail = email;
+  req.subscription = subscription;
+  next();
+}
+
+app.get('/api/billing/status', async (req, res) => {
+  const email = normalizeEmail(req.query?.email || req.headers['x-user-email']);
+  if (!email) {
+    return res.status(400).json({ error: 'email is required (query ?email=... or x-user-email header)' });
+  }
+
+  const subscription = await getUserSubscription(email);
+  res.json({
+    email,
+    premiumEnforcement,
+    plan: subscription?.plan || 'free',
+    subscriptionStatus: subscription?.subscriptionStatus || 'inactive',
+    updatedAt: subscription?.updatedAt || null
+  });
+});
+
+app.post('/api/generate', requirePremium, async (req, res) => {
   try {
     const { type, product, modelTier, settings, variants } = req.body || {};
     if (!type || !product) {
@@ -266,7 +459,13 @@ ${JSON.stringify(product, null, 2)}`,
   }
 });
 
-app.get('/health', (_, res) => res.json({ ok: true }));
+app.get('/health', (_, res) => {
+  res.json({
+    ok: true,
+    premiumEnforcement,
+    stripeConfigured: Boolean(stripeSecretKey && stripeWebhookSecret)
+  });
+});
 
 const port = process.env.PORT || 4300;
 app.listen(port, () => {
