@@ -4,6 +4,7 @@ const PROJECTS_KEY = 'lustrepilot_projects_v1';
 const VALIDATOR_AUTO_KEY = 'lustrepilot_validator_auto_v1';
 const ONBOARD_DISMISSED_KEY = 'lustrepilot_onboarding_dismissed_v1';
 const COMPACT_MODE_KEY = 'lustrepilot_compact_mode_v1';
+const USER_EMAIL_KEY = 'lustrepilot_user_email_v1';
 
 const TEMPLATE_PRESETS = [
   {
@@ -402,6 +403,13 @@ function fixIssues() {
 async function runThreeVariants() {
   const output = document.getElementById('output');
   const settings = getSettings();
+  const userEmail = getUserEmail();
+  if (!userEmail) {
+    setStatus('Email required for premium access check');
+    output.value = 'Please enter your account email to continue.';
+    return;
+  }
+
   const product = {
     name: document.getElementById('name').value,
     metal: document.getElementById('metal').value,
@@ -417,8 +425,8 @@ async function runThreeVariants() {
     for (const t of types) {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: t, product, modelTier: settings.modelTier, settings, variants: 3 })
+        headers: { 'Content-Type': 'application/json', 'x-user-email': userEmail },
+        body: JSON.stringify({ type: t, product, modelTier: settings.modelTier, settings, variants: 3, userEmail })
       });
       const data = await res.json();
       chunks.push(`=== ${t.toUpperCase()} VARIANTS ===\n${data.content || data.error || 'No response'}`);
@@ -499,6 +507,15 @@ function getSettings() {
   const voice = document.getElementById('settingVoice')?.value || '';
   const modelTier = document.getElementById('modelTier')?.value || 'balanced';
   return { tone, audience, voice, modelTier };
+}
+
+function getUserEmail() {
+  let email = (localStorage.getItem(USER_EMAIL_KEY) || '').trim();
+  if (!email) {
+    email = (window.prompt('Enter your account email for premium access check:') || '').trim().toLowerCase();
+    if (email) localStorage.setItem(USER_EMAIL_KEY, email);
+  }
+  return email;
 }
 
 function saveSettings() {
@@ -803,6 +820,13 @@ function exportProjectBundle() {
 async function run(type) {
   const output = document.getElementById('output');
   const settings = getSettings();
+  const userEmail = getUserEmail();
+  if (!userEmail) {
+    setStatus('Email required for premium access check');
+    output.value = 'Please enter your account email to continue.';
+    return;
+  }
+
   output.value = 'Generating...';
   setStatus(`Generating ${type} (${settings.modelTier})...`);
 
@@ -817,8 +841,8 @@ async function run(type) {
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, product, modelTier: settings.modelTier, settings })
+      headers: { 'Content-Type': 'application/json', 'x-user-email': userEmail },
+      body: JSON.stringify({ type, product, modelTier: settings.modelTier, settings, userEmail })
     });
     const data = await res.json();
     const content = data.content || data.error || 'No response';
