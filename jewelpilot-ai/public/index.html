@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LustrePilot AI</title>
+  <style>
+    :root {
+      --card: rgba(28, 20, 62, 0.76);
+      --border: rgba(255, 203, 104, 0.42);
+      --text: #f6f0ff;
+      --muted: #d2c6f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 820px at -10% -14%, rgba(255, 225, 141, 0.50) 0%, rgba(255, 225, 141, 0) 60%),
+        radial-gradient(1050px 760px at 112% -6%, rgba(189, 118, 255, 0.48) 0%, rgba(189, 118, 255, 0) 57%),
+        radial-gradient(980px 700px at 52% 118%, rgba(255, 169, 77, 0.34) 0%, rgba(255, 169, 77, 0) 62%),
+        radial-gradient(760px 560px at 30% 38%, rgba(255, 246, 214, 0.10) 0%, rgba(255, 246, 214, 0) 66%),
+        linear-gradient(145deg, #1b0b36 0%, #2a1150 48%, #3a1360 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1080px; margin: 28px auto; padding: 18px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 40px rgba(8, 4, 30, 0.36);
+    }
+    .hero { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    h1 { margin:0 0 6px; font-size: 34px; letter-spacing: 0.2px; }
+    .sub { color: var(--muted); font-size: 14px; }
+    .chip {
+      border:1px solid rgba(149,174,255,.35);
+      background: linear-gradient(135deg, rgba(89,140,255,0.2), rgba(141,105,255,0.22));
+      color:#dfe8ff;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .top-nav { display:grid; grid-template-columns: repeat(4,1fr); gap:9px; margin-top:12px; }
+    .nav-btn {
+      background: linear-gradient(180deg, #273667, #212f5a);
+      border:1px solid #4a5d98;
+      color: #dce4ff;
+      box-shadow: none;
+    }
+    .nav-btn.active { background: linear-gradient(135deg, #7a5dff, #d89bff 60%, #ffcf85); color: #fff; }
+
+    .grid { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+    input, textarea, button, select {
+      width:100%;
+      padding:11px 12px;
+      border-radius:11px;
+      border:1px solid #3b4d8d;
+      background:#101737;
+      color:#fff;
+      font-size: 13px;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #b999ff;
+      box-shadow: 0 0 0 2px rgba(185, 153, 255, 0.22);
+    }
+    textarea { min-height: 130px; line-height: 1.4; }
+    button {
+      background: linear-gradient(135deg, #6d52ff, #c889ff 58%, #ffcc79 100%);
+      border:none;
+      font-weight:700;
+      letter-spacing: 0.1px;
+      cursor:pointer;
+      transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+      box-shadow: 0 8px 20px rgba(60, 25, 120, 0.28);
+    }
+    button:hover { filter: brightness(1.08); box-shadow: 0 10px 24px rgba(74, 28, 140, 0.35); }
+    button:active { transform: translateY(1px); }
+    .row { display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin-top:10px; }
+    .meta-row { display:grid; grid-template-columns: 1.4fr 1fr; gap:10px; margin-top:10px; }
+
+    .textarea-wrap { position: relative; }
+    .copy-icon {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #3a4b7f;
+      background: #1d2b56;
+      color: #d9e6ff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      line-height: 1;
+      z-index: 2;
+      padding: 0;
+    }
+    .status {
+      padding:10px;
+      border:1px solid #41568f;
+      border-radius:10px;
+      background:#101839;
+      color:#c7d6ff;
+      font-weight: 600;
+    }
+    .tabs { display:grid; grid-template-columns: repeat(4,1fr); gap:8px; margin-top:12px; }
+    .tabs-5 { grid-template-columns: repeat(5, 1fr); }
+    .tabs-6 { grid-template-columns: repeat(6, 1fr); }
+    .tab-btn {
+      background: linear-gradient(180deg, #24335f, #1f2d56);
+      border:1px solid #41548d;
+      color:#dbe5ff;
+      box-shadow:none;
+    }
+    .tab-btn.active { background: linear-gradient(135deg, #7a5dff, #d89bff 60%, #ffcf85); color:#fff; }
+    .tab-panel { margin-top:10px; }
+    .tab-panel textarea { min-height: 120px; }
+    .copy-row { margin-top:8px; display:grid; grid-template-columns: 1fr; }
+    .hint { opacity:.82; font-size:13px; color:var(--muted); }
+    .validator-good { color: #7dffb0; font-weight: 700; }
+    .validator-warn { color: #ffd37d; font-weight: 700; }
+    .validator-bad { color: #ff9ba0; font-weight: 700; }
+
+    .onboard-list { margin: 8px 0 0; padding-left: 18px; color: #d8cffa; font-size: 13px; line-height: 1.45; }
+    .onboard-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      gap: 8px;
+      z-index: 9999;
+      max-width: 360px;
+    }
+    .toast {
+      border: 1px solid #5c4fb5;
+      background: rgba(24, 15, 52, 0.95);
+      color: #efe8ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 12px 28px rgba(18, 8, 38, 0.45);
+      font-size: 13px;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .compact .card { padding: 12px; margin-bottom: 10px; border-radius: 14px; }
+    .compact textarea { min-height: 90px; }
+    .compact .row { gap: 6px; margin-top: 6px !important; }
+    .compact .tabs, .compact .top-nav { gap: 6px; }
+
+    .mobile-actionbar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 9998;
+      background: rgba(16, 10, 36, 0.95);
+      border-top: 1px solid #4c3f97;
+      padding: 8px;
+      gap: 8px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .history-list { display:grid; gap:10px; margin-top:10px; }
+    .project-form { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-top:10px; }
+    .history-item { border:1px solid #3f5290; border-radius:12px; padding:11px; background:#10183a; }
+    .history-head { display:flex; justify-content:space-between; gap:10px; font-size:13px; color:#dce6ff; }
+    .history-time { color:#9fb3ea; }
+    .history-actions { display:flex; gap:8px; margin:8px 0; }
+    .history-actions button { width:auto; padding:6px 10px; font-size:12px; }
+    .history-preview { color:#b2c1ef; font-size:12px; line-height:1.35; }
+    .history-empty { padding:14px; border:1px dashed #3d518d; border-radius:12px; color:#9fb3ea; }
+
+    .setting-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+    .template-list { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-top:10px; }
+    .template-card { border:1px solid #304074; border-radius:12px; padding:12px; background:#0d1430; }
+    .template-card h4 { margin:0 0 6px; }
+    .template-card p { margin:0 0 10px; color:#b2c1ef; font-size:12px; }
+
+    @media (max-width: 1024px) {
+      .wrap { max-width: 94vw; padding: 14px; }
+      .row { gap: 8px; }
+      .tabs-6 { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 820px) {
+      .wrap { margin: 16px auto; padding: 10px 10px 72px; }
+      .card { padding: 14px; border-radius: 14px; }
+      .grid, .row, .meta-row, .tabs, .top-nav, .setting-grid, .tabs-5, .tabs-6 { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .sub { font-size: 13px; }
+      .hero { align-items: flex-start; flex-direction: column; }
+      .history-head { flex-direction: column; }
+      .onboard-actions { flex-direction: column; }
+      button { padding: 11px; min-height: 42px; }
+      textarea { min-height: 110px; }
+      .mobile-actionbar { display: grid; }
+    }
+
+    @media (max-width: 480px) {
+      .chip { font-size: 11px; padding: 6px 10px; }
+      input, textarea, button, select { font-size: 12px; }
+      .toast-wrap { right: 8px; left: 8px; max-width: none; }
+      .toast { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card hero">
+      <div>
+        <h1>LustrePilot AI</h1>
+        <div class="sub">Generate premium jewelry listings, ad copy, and follow-ups in one click.</div>
+      </div>
+      <div class="chip">MVP Pro Theme • v2</div>
+    </div>
+
+    <div class="card" style="padding:12px 14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div>
+          <strong>Founder Beta:</strong> $29/month (limited spots)
+          <div class="hint">Includes Etsy/Amazon/Shopify generation + priority support.</div>
+        </div>
+        <a href="https://buy.stripe.com/test_4gM28t3PQ9czbjq7dM7Re00" target="_blank" rel="noopener noreferrer" style="text-decoration:none; min-width:180px;">
+          <button type="button">Upgrade / Get Access</button>
+        </a>
+      </div>
+    </div>
+
+    <div class="top-nav">
+      <button id="nav-generator" class="nav-btn" onclick="showPage('generator')">Generator</button>
+      <button id="nav-history" class="nav-btn" onclick="showPage('history')">History</button>
+      <button id="nav-settings" class="nav-btn" onclick="showPage('settings')">Settings</button>
+      <button id="nav-templates" class="nav-btn" onclick="showPage('templates')">Templates</button>
+    </div>
+
+    <div class="card" style="padding:10px 12px;">
+      <label class="hint" style="display:flex; align-items:center; gap:8px;">
+        <input id="compactMode" type="checkbox" /> Compact mode
+      </label>
+    </div>
+
+    <div id="onboardingCard" class="card" style="display:none;">
+      <div style="font-weight:700; margin-bottom:6px;">Quick Start</div>
+      <div class="hint">If this is your first run, use this path:</div>
+      <ul class="onboard-list">
+        <li>Fill product basics (name, metal, stone, target price)</li>
+        <li>Pick output channel (Amazon / Shopify / Etsy)</li>
+        <li>Run Validator and click <strong>Fix Issues</strong> if needed</li>
+        <li>Use copy tabs or Shopify Product Pack to publish faster</li>
+      </ul>
+      <div class="onboard-actions">
+        <button style="width:auto;" onclick="dismissOnboarding()">Got it</button>
+      </div>
+    </div>
+
+    <div id="page-generator">
+      <div class="card">
+        <div class="grid">
+          <input id="name" placeholder="Product name (e.g., Lab Diamond Eternity Ring)" />
+          <input id="metal" placeholder="Metal (925 silver / 14k gold)" />
+          <input id="stone" placeholder="Stone (lab-grown diamond CVD)" />
+          <input id="price" placeholder="Target price (e.g., $129)" />
+        </div>
+        <div style="margin-top:10px;">
+          <textarea id="notes" placeholder="Extra details (size range, gift box, shipping, style, audience)"></textarea>
+        </div>
+
+        <div class="meta-row">
+          <div>
+            <label for="modelTier" class="hint">Model Mode</label>
+            <select id="modelTier">
+              <option value="fast">⚡ Fast (drafts)</option>
+              <option value="balanced" selected>⚖️ Balanced (recommended)</option>
+              <option value="quality">💎 Quality (best output)</option>
+            </select>
+          </div>
+          <div>
+            <label class="hint">Current Status</label>
+            <div id="status" class="status">Ready</div>
+          </div>
+        </div>
+
+        <div class="row" style="grid-template-columns: repeat(5,1fr);">
+          <button onclick="run('etsy')">Generate Etsy</button>
+          <button onclick="run('amazon')">Generate Amazon</button>
+          <button onclick="run('shopify')">Generate Shopify</button>
+          <button onclick="run('ads')">Generate Ads</button>
+          <button onclick="run('followup')">Generate Follow-ups</button>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="run('amazon_title')">Regenerate Titles Only</button>
+          <button onclick="copyAll()">Copy Full Output</button>
+          <button onclick="copySection('title')">Copy Title Tab</button>
+          <button onclick="copySection('backend')">Copy Backend Terms</button>
+        </div>
+        <div class="row" style="margin-top:8px; grid-template-columns: 1fr 1fr;">
+          <button onclick="exportTxt()">Export TXT</button>
+          <button onclick="exportCsv()">Export CSV</button>
+        </div>
+        <div class="row" style="margin-top:8px; grid-template-columns: 1fr 1fr 1fr 1fr;">
+          <button onclick="copyAllAmazonFields()">Copy All Amazon Fields</button>
+          <button onclick="copyAllShopifyFields()">Copy All Shopify Fields</button>
+          <button onclick="saveProject()">Save Project</button>
+          <button onclick="exportProjectBundle()">Export Bundle</button>
+        </div>
+        <div class="row" style="margin-top:8px; grid-template-columns: 1fr 1fr 1fr;">
+          <button onclick="runThreeVariants()">Generate 3 Variants</button>
+          <button onclick="fixIssues()">Fix Issues</button>
+          <button onclick="copyShopifyPublishPack()">Copy Shopify Product Pack</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="textarea-wrap">
+          <button class="copy-icon" title="Copy full output" onclick="copyById('output', 'Full output')">📋</button>
+          <textarea id="output" placeholder="Output appears here..."></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+          <div style="font-weight:700;">Validator Panel</div>
+          <label class="hint" style="display:flex; align-items:center; gap:6px;">
+            <input id="validatorAuto" type="checkbox" /> Auto-validate while typing
+          </label>
+        </div>
+        <div id="validatorSummary" class="hint">Run generation to see quality checks.</div>
+        <textarea id="validatorDetails" style="margin-top:8px; min-height:110px;" placeholder="Validation details appear here..." readonly></textarea>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:4px;">Amazon Quick Copy Tabs</div>
+        <div class="hint">Generate Amazon content, then open any tab and copy in one click.</div>
+
+        <div class="tabs">
+          <button id="btn-title" class="tab-btn" onclick="showTab('title')">Title</button>
+          <button id="btn-bullets" class="tab-btn" onclick="showTab('bullets')">Bullets</button>
+          <button id="btn-keywords" class="tab-btn" onclick="showTab('keywords')">Keywords</button>
+          <button id="btn-backend" class="tab-btn" onclick="showTab('backend')">Backend Terms</button>
+        </div>
+
+        <div id="panel-title" class="tab-panel">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy title" onclick="copyById('tabTitle', 'Title tab')">📋</button>
+            <textarea id="tabTitle" placeholder="Title section appears here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copySection('title')">Copy Title</button></div>
+        </div>
+
+        <div id="panel-bullets" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy bullets" onclick="copyById('tabBullets', 'Bullets tab')">📋</button>
+            <textarea id="tabBullets" placeholder="Bullet points appear here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copySection('bullets')">Copy Bullets</button></div>
+        </div>
+
+        <div id="panel-keywords" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy keywords" onclick="copyById('tabKeywords', 'Keywords tab')">📋</button>
+            <textarea id="tabKeywords" placeholder="Keywords appear here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copySection('keywords')">Copy Keywords</button></div>
+        </div>
+
+        <div id="panel-backend" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy backend terms" onclick="copyById('tabBackend', 'Backend tab')">📋</button>
+            <textarea id="tabBackend" placeholder="Backend terms appear here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copySection('backend')">Copy Backend Terms</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:4px;">Shopify Quick Copy Tabs</div>
+        <div class="hint">Generate Shopify content, then copy each section in one click.</div>
+
+        <div class="tabs tabs-6">
+          <button id="btn-shopify-title" class="tab-btn" onclick="showShopifyTab('title')">Title</button>
+          <button id="btn-shopify-description" class="tab-btn" onclick="showShopifyTab('description')">Description</button>
+          <button id="btn-shopify-html" class="tab-btn" onclick="showShopifyTab('html')">HTML</button>
+          <button id="btn-shopify-seo" class="tab-btn" onclick="showShopifyTab('seo')">SEO</button>
+          <button id="btn-shopify-tags" class="tab-btn" onclick="showShopifyTab('tags')">Tags</button>
+          <button id="btn-shopify-handle" class="tab-btn" onclick="showShopifyTab('handle')">Handle</button>
+        </div>
+
+        <div id="panel-shopify-title" class="tab-panel">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify title" onclick="copyById('shopifyTitle', 'Shopify Title')">📋</button>
+            <textarea id="shopifyTitle" placeholder="Shopify title appears here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('title')">Copy Shopify Title</button></div>
+        </div>
+
+        <div id="panel-shopify-description" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify description" onclick="copyById('shopifyDescription', 'Shopify Description')">📋</button>
+            <textarea id="shopifyDescription" placeholder="Shopify description appears here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('description')">Copy Shopify Description</button></div>
+        </div>
+
+        <div id="panel-shopify-html" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify HTML" onclick="copyById('shopifyHtml', 'Shopify HTML')">📋</button>
+            <textarea id="shopifyHtml" placeholder="Shopify HTML description appears here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('html')">Copy Shopify HTML</button></div>
+        </div>
+
+        <div id="panel-shopify-seo" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify SEO" onclick="copyById('shopifySeo', 'Shopify SEO')">📋</button>
+            <textarea id="shopifySeo" placeholder="SEO title + meta description appear here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('seo')">Copy Shopify SEO</button></div>
+        </div>
+
+        <div id="panel-shopify-tags" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify tags" onclick="copyById('shopifyTags', 'Shopify Tags')">📋</button>
+            <textarea id="shopifyTags" placeholder="Shopify tags appear here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('tags')">Copy Shopify Tags</button></div>
+        </div>
+
+        <div id="panel-shopify-handle" class="tab-panel" style="display:none;">
+          <div class="textarea-wrap">
+            <button class="copy-icon" title="Copy Shopify handle" onclick="copyById('shopifyHandle', 'Shopify Handle')">📋</button>
+            <textarea id="shopifyHandle" placeholder="Shopify handle appears here..."></textarea>
+          </div>
+          <div class="copy-row"><button onclick="copyShopifySection('handle')">Copy Shopify Handle</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-history" style="display:none;">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;">Generation History</div>
+            <div class="hint">Last 30 outputs saved locally in your browser.</div>
+          </div>
+          <button style="width:auto;" onclick="clearHistory()">Clear History</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;">Saved Projects</div>
+        <div class="hint">Name important generations and reopen anytime.</div>
+        <div class="project-form">
+          <input id="projectName" placeholder="Project name (e.g., Silver Ring Feb Campaign)" />
+          <button onclick="saveProject()">Save Current</button>
+        </div>
+        <div class="setting-grid" style="margin-top:10px;">
+          <input id="perfCtr" placeholder="CTR % (e.g., 2.8)" />
+          <input id="perfCvr" placeholder="Conversion % (e.g., 1.4)" />
+          <input id="perfSales" placeholder="Sales count (e.g., 12)" />
+          <input id="perfNotes" placeholder="Performance notes" />
+        </div>
+        <div id="projectList" class="history-list"></div>
+      </div>
+    </div>
+
+    <div id="page-settings" style="display:none;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:6px;">Writing Preferences</div>
+        <div class="hint" style="margin-bottom:10px;">These are sent with each generation request.</div>
+        <div class="setting-grid">
+          <div>
+            <label class="hint" for="settingTone">Tone</label>
+            <select id="settingTone">
+              <option value="high-converting" selected>High-converting</option>
+              <option value="luxury">Luxury</option>
+              <option value="minimal">Minimal</option>
+              <option value="friendly">Friendly</option>
+            </select>
+          </div>
+          <div>
+            <label class="hint" for="settingAudience">Audience</label>
+            <select id="settingAudience">
+              <option value="US buyers" selected>US buyers</option>
+              <option value="Premium shoppers">Premium shoppers</option>
+              <option value="Gift buyers">Gift buyers</option>
+              <option value="Etsy audience">Etsy audience</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <label class="hint" for="settingVoice">Brand Voice Notes</label>
+          <textarea id="settingVoice" placeholder="Example: Keep copy elegant, modern, and concise. Mention gifting when natural."></textarea>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+          <button onclick="saveSettings()">Save Settings</button>
+          <button onclick="showPage('generator')">Back to Generator</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-templates" style="display:none;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:6px;">Preset Templates</div>
+        <div class="hint">Apply one click preset. It fills product notes + settings, then you can generate immediately.</div>
+        <div id="templateList" class="template-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastWrap" class="toast-wrap"></div>
+
+  <div id="mobileActionBar" class="mobile-actionbar">
+    <button onclick="run('amazon')">Amazon</button>
+    <button onclick="run('shopify')">Shopify</button>
+    <button onclick="saveProject()">Save</button>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
